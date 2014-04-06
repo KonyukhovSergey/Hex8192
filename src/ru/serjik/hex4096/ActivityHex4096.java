@@ -1,12 +1,13 @@
 package ru.serjik.hex4096;
 
 import ru.serjik.engine.eng;
+import android.opengl.GLSurfaceView;
 import android.os.Bundle;
 import android.app.Activity;
 
 public class ActivityHex4096 extends Activity
 {
-	private GameField view;
+	private GLSurfaceView view;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState)
@@ -14,7 +15,7 @@ public class ActivityHex4096 extends Activity
 		super.onCreate(savedInstanceState);
 		eng.am = getAssets();
 
-		view = new GameField(this);
+		view = new HexField(this);
 
 		setContentView(view);
 	}

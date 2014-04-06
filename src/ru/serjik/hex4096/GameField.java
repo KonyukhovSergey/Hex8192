@@ -20,6 +20,7 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.os.SystemClock;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
@@ -139,6 +140,7 @@ public class GameField extends EngineView
 				dx = dy < 0 ? (dx < 0 ? 0 : 1) : (dx < 0 ? -1 : 0);
 				dy = dy < 0 ? -1 : 1;
 			}
+			Log.v("move", "dx = " + dx + " dy = " + dy);
 			state = State.MOVE;
 			return true;
 		}
@@ -165,6 +167,7 @@ public class GameField extends EngineView
 	public int getFreePositions()
 	{
 		int count = 0;
+
 		for (int i = 0; i < values.length; i++)
 		{
 			if (values[i] == 0)
@@ -242,18 +245,16 @@ public class GameField extends EngineView
 		gl.glClearColor(0, 0, 0, 0);
 		gl.glClear(GL10.GL_COLOR_BUFFER_BIT);
 
-		float cellRadius = kw * getWidth() / 10;
+		float cellRadius = kw * width() / 10;
 
-		float cx = getWidth() / 2;
-		float cy = getHeight() - getWidth() / 2;
+		float cx = width() / 2;
+		float cy = height() - width() / 2;
 
 		float cw = cellRadius * kw;
 		float ch = cellRadius * 0.75f;
 
 		int width = size * 2 - 1;
 
-		float hw = cw;
-		float hh = cellRadius;
 
 		int score = 0;
 
@@ -314,8 +315,8 @@ public class GameField extends EngineView
 			float x = r * cw * 2 + q * cw + cx;
 			float y = q * ch * 2 + cy;
 
-			if (values[i] > 1 && x >= cw && x < getWidth() - cw && y >= cellRadius + (getHeight() - getWidth())
-					&& y < getHeight() - cellRadius)
+			if (values[i] > 1 && x >= cw && x < width() - cw && y >= cellRadius + (height() - width())
+					&& y < height() - cellRadius)
 			{
 				int diamondIndex = (int) (Math.log(values[i]) / Math.log(2)) - 1;
 
@@ -325,11 +326,11 @@ public class GameField extends EngineView
 				{
 					float mx = moving_pshase * (dx * cw * 2 + dy * cw);
 					float my = moving_pshase * (dy * ch * 2);
-					bd.draw(diamonds[diamondIndex + 1], x - 64 + mx, y - 64 + my);
+					bd.drawCentered(diamonds[diamondIndex + 1], x + mx, y + my);
 				}
 				else
 				{
-					bd.draw(diamonds[diamondIndex + 1], x - 64, y - 64);
+					bd.drawCentered(diamonds[diamondIndex + 1], x, y);
 				}
 			}
 		}
@@ -346,10 +347,10 @@ public class GameField extends EngineView
 			float x = r * cw * 2 + q * cw + cx;
 			float y = q * ch * 2 + cy;
 
-			if (values[i] != 1 && x >= cw && x < getWidth() - cw && y >= cellRadius + (getHeight() - getWidth())
-					&& y < getHeight() - cellRadius)
+			if (values[i] != 1 && x >= cw && x < width() - cw && y >= cellRadius + (height() - width())
+					&& y < height() - cellRadius)
 			{
-				bd.draw(diamonds[0], x - 64, y - 64);
+				bd.drawCentered(diamonds[0], x, y);
 			}
 			else
 			{
