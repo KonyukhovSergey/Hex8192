@@ -1,22 +1,31 @@
 package ru.serjik.hex4096;
 
+import ru.serjik.engine.BatchDrawer;
+import ru.serjik.engine.Tile;
+import android.util.Log;
+
+// (3 - 2 * x) * x * x
+
 public class Cell
 {
-	public static final float DELTA_MOVE = 0.05f;
+	private static final float DELTA_MOVE = 0.1f;
 
 	public int gem = 0;
 
-	public CellState state = CellState.BASE;
+	private CellState state = CellState.BASE;
 
-	public int moveDirectionX;
-	public int moveDirectionY;
-	public float moveCompletion;
+	private int moveDirectionX;
+	private int moveDirectionY;
+
+	private float actionCompletion;
+	private int actionCounter;
 
 	public float screenPositionX;
 	public float screenPositionY;
 
 	public Cell[] neighborhood = new Cell[6];
-	public Cell forwardNeighbor = null;
+
+	private Cell forwardNeighbor = null;
 
 	public Cell(float x, float y)
 	{
@@ -26,102 +35,186 @@ public class Cell
 
 	public void bump(int dx, int dy)
 	{
-		state = CellState.START;
-		moveDirectionX = dx;
-		moveDirectionY = dy;
+		if (state == CellState.BASE)
+		{
+			state = CellState.BUMP;
+
+			moveDirectionX = dx;
+			moveDirectionY = dy;
+
+			actionCounter = 0;
+		}
+	}
+
+	// _ _ _ _ _ _
+	// _ 0 _ _ _ _
+	// _ 1 _ _ _ _
+	// 0 2 0 _ _ _
+	// 1 3 1 _ _ _
+	// 2 _ 2 0 _ _
+	// 3 _ 3 1 _ _
+	// _ _ _ 2 0 _
+	// _ _ _ 3 1 _
+	// _ _ _ _ 2 0
+	// _ _ _ _ 3 1
+	// _ _ _ _ _ 2
+	// _ _ _ _ _ 3
+	// _ _ _ _ _ _
+	private boolean tickSolverBump()
+	{
+		switch (actionCounter)
+		{
+		case 0:
+			actionCounter = 1;
+			return true;
+
+		case 1:
+			if (gem > 0)
+			{
+				actionCounter = 0;
+				actionCompletion = 0;
+				updateForwardNeighbor();
+				state = CellState.MOVE;
+			}
+			else
+			{
+				bumpNeighborhood();
+				actionCounter = 2;
+			}
+			return true;
+
+		case 2:
+			actionCounter = 3;
+			return true;
+
+		case 3:
+			state = CellState.BASE;
+			return false;
+		}
+
+		return false;
+	}
+
+	private boolean tickSolverMove()
+	{
+		switch (actionCounter)
+		{
+		case 0:
+			if (forwardNeighbor == null)
+			{
+				state = CellState.BASE;
+				return false;
+			}
+			else
+			{
+				if (forwardNeighbor.gem == 0)
+				{
+					actionCounter = 1;
+					actionCompletion += DELTA_MOVE;
+					return true;
+				}
+				if (forwardNeighbor.gem != gem)
+				{
+					return false;
+				}
+				else
+				{
+					if (forwardNeighbor.state == CellState.BASE || forwardNeighbor.state == CellState.BUMP)
+					{
+						forwardNeighbor.state = CellState.RECV;
+						forwardNeighbor.actionCompletion = 0;
+						actionCounter = 1;
+						actionCompletion += DELTA_MOVE;
+						return true;
+					}
+				}
+
+			}
+			break;
+
+		case 1:
+			actionCompletion += DELTA_MOVE;
+
+			if (actionCompletion >= 1)
+			{
+				if (forwardNeighbor.state == CellState.RECV)
+				{
+					forwardNeighbor.gem = gem + 1;
+				}
+				else
+				{
+					forwardNeighbor.gem = gem;
+				}
+				gem = 0;
+				state = CellState.BASE;
+				forwardNeighbor.bump(moveDirectionX, moveDirectionY);
+				return true;
+			}
+
+			break;
+		}
+		return false;
+	}
+
+	private void updateForwardNeighbor()
+	{
 		int forwardIndex = neighborIndex(moveDirectionX, moveDirectionY);
+
 		forwardNeighbor = null;
+
 		if (forwardIndex >= 0)
 		{
 			forwardNeighbor = neighborhood[forwardIndex];
 		}
-
 	}
 
-	public boolean tickForStart()
+	private void bumpNeighborhood()
 	{
-		boolean isMoving = false;
-
-		if (state == CellState.START)
+		for (Cell neighbor : neighborhood)
 		{
-			state = CellState.MOVE;
-			moveCompletion = 0;
-			isMoving = true;
-		}
-
-		return isMoving;
-	}
-
-	public float sdx()
-	{
-		return (forwardNeighbor.screenPositionX - screenPositionX) * moveCompletion;
-	}
-
-	public float sdy()
-	{
-		return (forwardNeighbor.screenPositionY - screenPositionY) * moveCompletion;
-	}
-
-	public boolean tickForMove()
-	{
-		boolean isMoving = false;
-
-		if (state == CellState.MOVE)
-		{
-			if (gem > 0)
+			if (neighbor != null)
 			{
-				if (forwardNeighbor != null)
-				{
-					if (moveCompletion < DELTA_MOVE * 0.5f)
-					{
-						if (forwardNeighbor.gem == gem)
-						{
-							forwardNeighbor.gem = 0;
-							gem++;
-							moveCompletion += DELTA_MOVE;
-							isMoving = true;
-						}
-						else if (forwardNeighbor.gem == 0)
-						{
-							moveCompletion += DELTA_MOVE;
-							isMoving = true;
-						}
-					}
-					else
-					{
-						isMoving = true;
-
-						if (moveCompletion > 1 - DELTA_MOVE)
-						{
-							forwardNeighbor.gem = gem;
-							gem = 0;
-							state = CellState.START;
-							moveCompletion = 0;
-						}
-						else
-						{
-							moveCompletion += DELTA_MOVE;
-						}
-					}
-				}
-			}
-			//else
-			{
-				for (Cell neighbor : neighborhood)
-				{
-					if (neighbor != null)
-					{
-						if (neighbor.state == CellState.BASE)
-						{
-							neighbor.bump(moveDirectionX, moveDirectionY);
-							isMoving = true;
-						}
-					}
-				}
+				neighbor.bump(moveDirectionX, moveDirectionY);
 			}
 		}
+	}
 
-		return isMoving;
+	private float sdx()
+	{
+		return screenPositionX + (forwardNeighbor.screenPositionX - screenPositionX) * actionCompletion
+				* actionCompletion;
+	}
+
+	private float sdy()
+	{
+		return screenPositionY + (forwardNeighbor.screenPositionY - screenPositionY) * actionCompletion
+				* actionCompletion;
+	}
+
+	public boolean tick(CellState stateFilter)
+	{
+		if (state != stateFilter)
+		{
+			return false;
+		}
+
+		switch (state)
+		{
+		case BASE:
+			break;
+		case BUMP:
+			return tickSolverBump();
+		case MOVE:
+			return tickSolverMove();
+		case PUT:
+			break;
+		case RECV:
+			break;
+		default:
+			break;
+		}
+
+		return false;
 	}
 
 	public final static int neighborIndex(int dx, int dy)
@@ -165,7 +258,22 @@ public class Cell
 
 	public enum CellState
 	{
-		BASE, START, MOVE
+		BASE, PUT, BUMP, MOVE, RECV
+	}
+
+	public void draw(BatchDrawer bd, Tile[] gems)
+	{
+		if (state != CellState.MOVE)
+		{
+			bd.drawCentered(gems[gem], screenPositionX, screenPositionY);
+		}
+		else
+		{
+			bd.drawCentered(gems[gem], sdx(), sdy());
+		}
+
+		// TODO Auto-generated method stub
+
 	}
 
 }

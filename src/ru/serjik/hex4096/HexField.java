@@ -8,6 +8,7 @@ import android.content.Context;
 import android.os.SystemClock;
 import android.util.Log;
 import android.view.MotionEvent;
+import android.widget.Toast;
 import ru.serjik.engine.BatchDrawer;
 import ru.serjik.engine.EngineView;
 import ru.serjik.engine.Texture;
@@ -78,51 +79,55 @@ public class HexField extends EngineView
 		gl.glClear(GL10.GL_COLOR_BUFFER_BIT);
 
 		drawCells();
+		
 		drawGems();
 
 		bd.flush();
 
-		//SystemClock.sleep(250);
+		SystemClock.sleep(100);
 
 		tick();
 	}
 
+	private boolean doTickForCells(CellState filter)
+	{
+		boolean result = false;
+		for (Cell cell : cells)
+		{
+			if (cell != null)
+			{
+				if (cell.tick(filter))
+				{
+					result = true;
+				}
+			}
+		}
+		return result;
+	}
+	
 	private void tick()
 	{
-		isMoving = false;
+		boolean isMoveEnd = isMoving;
 
-		for (Cell cell : cells)
+		isMoving = doTickForCells(CellState.MOVE)?true:isMoving;
+		isMoving = doTickForCells(CellState.BUMP)?true:isMoving;
+		
+		if (isMoveEnd && isMoving == false)
 		{
-			if (cell != null)
+			Log.v("move", "onMoveEnd!!!");
+			if (putGems(GEMS_PER_MOVE) == false)
 			{
-				if (cell.tickForStart())
-				{
-					isMoving = true;
-				}
+				//Toast.makeText(getContext(), "GAME OVER", Toast.LENGTH_LONG).show();
+				
+//				for (Cell cell : cells)
+//				{
+//					if (cell != null)
+//					{
+//						cell.state = CellState.BASE;
+//						cell.gem = 0;
+//					}
+//				}
 			}
-		}
-
-		for (Cell cell : cells)
-		{
-			if (cell != null)
-			{
-				if (cell.tickForMove())
-				{
-					isMoving = true;
-				}
-			}
-		}
-
-		if (isMoving == false)
-		{
-			for (Cell cell : cells)
-			{
-				if (cell != null)
-				{
-					cell.state = CellState.BASE;
-				}
-			}
-			// selectedIndex = -1;
 		}
 
 	}
@@ -149,12 +154,12 @@ public class HexField extends EngineView
 				if (selectedIndex >= 0)
 				{
 					int index = getIndex(x, y);
-					
-					if (index != selectedIndex)
+
+					if (index != selectedIndex && index >= 0)
 					{
 						int dx = (int) (cells[index].screenPositionX - cells[selectedIndex].screenPositionX);
 						int dy = (int) (cells[index].screenPositionY - cells[selectedIndex].screenPositionY);
-				
+
 						if (Math.abs(dy) < Math.abs(dx) * 0.5f)
 						{
 							dy = 0;
@@ -166,8 +171,9 @@ public class HexField extends EngineView
 							dy = dy < 0 ? -1 : 1;
 						}
 						Log.v("move", "dx = " + dx + " dy = " + dy);
-						
+
 						cells[selectedIndex].bump(dx, dy);
+						isMoving = true;
 						return true;
 					}
 				}
@@ -209,38 +215,29 @@ public class HexField extends EngineView
 
 	private void drawGems()
 	{
-		for (int i = 0; i < cells.length; i++)
+		for (Cell cell:cells)
 		{
-			Cell cell = cells[i];
 			if (cell != null)
 			{
-				if (cell.gem > 0)
-				{
-					if (cell.state == CellState.MOVE && cell.moveCompletion >= cell.DELTA_MOVE)
-					{
-						bd.drawCentered(gems[cell.gem], cell.screenPositionX + cell.sdx(),
-								cell.screenPositionY + cell.sdy());
-					}
-					else
-					{
-						bd.drawCentered(gems[cell.gem], cell.screenPositionX, cell.screenPositionY);
-					}
-				}
+				cell.draw(bd,gems);
 
-				switch (cell.state)
-				{
-				case BASE:
-					bd.drawScaledCentered(gems[1],0.333f, cell.screenPositionX, cell.screenPositionY);
-					break;
-				case START:
-					bd.drawScaledCentered(gems[2],0.333f, cell.screenPositionX, cell.screenPositionY);
-					break;
-				case MOVE:
-					bd.drawScaledCentered(gems[3],0.333f,  cell.screenPositionX, cell.screenPositionY);
-					break;
-				default:
-					break;
-				}
+				// switch (cell.state)
+				// {
+				// case BASE:
+				// bd.drawScaledCentered(gems[1], 0.333f, cell.screenPositionX,
+				// cell.screenPositionY);
+				// break;
+				// case START:
+				// bd.drawScaledCentered(gems[2], 0.333f, cell.screenPositionX,
+				// cell.screenPositionY);
+				// break;
+				// case MOVE:
+				// bd.drawScaledCentered(gems[3], 0.333f, cell.screenPositionX,
+				// cell.screenPositionY);
+				// break;
+				// default:
+				// break;
+				// }
 
 				// if (i == selectedIndex)
 				// {
@@ -307,6 +304,9 @@ public class HexField extends EngineView
 		centerFieldX = width() / 2;
 		centerFieldY = height() - width() / 2;
 
+		float cw = cellRadius * kw;
+		float ch = cellRadius * 0.75f;
+
 		for (int i = 0; i < cells.length; i++)
 		{
 			int ix = i % fieldCellsWidth;
@@ -317,8 +317,13 @@ public class HexField extends EngineView
 				int r = ix - (FIELD_SIZE - 1);
 				int q = iy - (FIELD_SIZE - 1);
 
-				float x = cellRadius * (float) Math.sqrt(3.0f) * (q + (float) r * 0.5f) + centerFieldX;
-				float y = cellRadius * 1.5f * r + centerFieldY;
+				// ! shit fucking trouble!!!
+				// float x = cellRadius * (float) Math.sqrt(3.0f) * (q + (float)
+				// r * 0.5f) + centerFieldX;
+				// float y = cellRadius * 1.5f * r + centerFieldY;
+
+				float x = r * cw * 2 + q * cw + centerFieldX;
+				float y = q * ch * 2 + centerFieldY;
 
 				if (x >= cellRadius && x < width() - cellRadius && y >= cellRadius + (height() - width())
 						&& y < height() - cellRadius)
@@ -331,24 +336,23 @@ public class HexField extends EngineView
 
 	private void setNieghborhood()
 	{
-		int width = FIELD_SIZE * 2 - 1;
 
 		for (int i = 0; i < cells.length; i++)
 		{
 
 			if (cells[i] != null)
 			{
-				int ri = i % width;
-				int qi = i / width;
-				
+				int ri = i % fieldCellsWidth;
+				int qi = i / fieldCellsWidth;
+
 				Cell cell = cells[i];
 
-				cell.neighborhood[0] = cells[(ri + 1) + (qi - 1) * width];
-				cell.neighborhood[1] = cells[(ri + 1) + (qi + 0) * width];
-				cell.neighborhood[2] = cells[(ri + 0) + (qi + 1) * width];
-				cell.neighborhood[3] = cells[(ri - 1) + (qi + 1) * width];
-				cell.neighborhood[4] = cells[(ri - 1) + (qi + 0) * width];
-				cell.neighborhood[5] = cells[(ri + 0) + (qi - 1) * width];
+				cell.neighborhood[0] = cells[(ri + 1) + (qi - 1) * fieldCellsWidth];
+				cell.neighborhood[1] = cells[(ri + 1) + (qi + 0) * fieldCellsWidth];
+				cell.neighborhood[2] = cells[(ri + 0) + (qi + 1) * fieldCellsWidth];
+				cell.neighborhood[3] = cells[(ri - 1) + (qi + 1) * fieldCellsWidth];
+				cell.neighborhood[4] = cells[(ri - 1) + (qi + 0) * fieldCellsWidth];
+				cell.neighborhood[5] = cells[(ri + 0) + (qi - 1) * fieldCellsWidth];
 			}
 		}
 	}
