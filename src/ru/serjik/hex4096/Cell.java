@@ -2,23 +2,23 @@ package ru.serjik.hex4096;
 
 import ru.serjik.engine.BatchDrawer;
 import ru.serjik.engine.Tile;
-import android.util.Log;
 
 // (3 - 2 * x) * x * x
 
 public class Cell
 {
-	private static final float DELTA_MOVE = 0.1f;
+	private static final float DELTA_MOVE = 0.05f;
 
 	public int gem = 0;
 
-	private CellState state = CellState.BASE;
+	public CellState state = CellState.BASE;
 
-	private int moveDirectionX;
-	private int moveDirectionY;
+	private static int moveDirectionX;
+	private static int moveDirectionY;
 
 	private float actionCompletion;
-	private int actionCounter;
+
+	private int operationId = 0;
 
 	public float screenPositionX;
 	public float screenPositionY;
@@ -35,125 +35,63 @@ public class Cell
 
 	public void bump(int dx, int dy)
 	{
-		if (state == CellState.BASE)
-		{
-			state = CellState.BUMP;
-
-			moveDirectionX = dx;
-			moveDirectionY = dy;
-
-			actionCounter = 0;
-		}
+		moveDirectionX = dx;
+		moveDirectionY = dy;
 	}
 
-	// _ _ _ _ _ _
-	// _ 0 _ _ _ _
-	// _ 1 _ _ _ _
-	// 0 2 0 _ _ _
-	// 1 3 1 _ _ _
-	// 2 _ 2 0 _ _
-	// 3 _ 3 1 _ _
-	// _ _ _ 2 0 _
-	// _ _ _ 3 1 _
-	// _ _ _ _ 2 0
-	// _ _ _ _ 3 1
-	// _ _ _ _ _ 2
-	// _ _ _ _ _ 3
-	// _ _ _ _ _ _
-	private boolean tickSolverBump()
+	private boolean findMove(int operationId)
 	{
-		switch (actionCounter)
-		{
-		case 0:
-			actionCounter = 1;
-			return true;
+		this.operationId = operationId;
 
-		case 1:
-			if (gem > 0)
+		if (gem > 0 && state == CellState.BASE)
+		{
+			updateForwardNeighbor();
+
+			if (forwardNeighbor != null)
 			{
-				actionCounter = 0;
 				actionCompletion = 0;
-				updateForwardNeighbor();
-				state = CellState.MOVE;
-			}
-			else
-			{
-				bumpNeighborhood();
-				actionCounter = 2;
-			}
-			return true;
 
-		case 2:
-			actionCounter = 3;
-			return true;
-
-		case 3:
-			state = CellState.BASE;
-			return false;
-		}
-
-		return false;
-	}
-
-	private boolean tickSolverMove()
-	{
-		switch (actionCounter)
-		{
-		case 0:
-			if (forwardNeighbor == null)
-			{
-				state = CellState.BASE;
-				return false;
-			}
-			else
-			{
 				if (forwardNeighbor.gem == 0)
 				{
-					actionCounter = 1;
-					actionCompletion += DELTA_MOVE;
+					state = CellState.MOVE;
 					return true;
 				}
-				if (forwardNeighbor.gem != gem)
+
+				if (forwardNeighbor.gem == gem)
 				{
-					return false;
+					state = CellState.MOVE;
+					forwardNeighbor.state = CellState.RECV;
+					return true;
 				}
-				else
+			}
+		}
+
+		for (int i = 0; i < 6; i++)
+		{
+			if (neighborhood[i] != null)
+			{
+				if (neighborhood[i].operationId != operationId)
 				{
-					if (forwardNeighbor.state == CellState.BASE || forwardNeighbor.state == CellState.BUMP)
+					if (neighborhood[i].findMove(operationId))
 					{
-						forwardNeighbor.state = CellState.RECV;
-						forwardNeighbor.actionCompletion = 0;
-						actionCounter = 1;
-						actionCompletion += DELTA_MOVE;
 						return true;
 					}
 				}
-
 			}
-			break;
-
-		case 1:
-			actionCompletion += DELTA_MOVE;
-
-			if (actionCompletion >= 1)
-			{
-				if (forwardNeighbor.state == CellState.RECV)
-				{
-					forwardNeighbor.gem = gem + 1;
-				}
-				else
-				{
-					forwardNeighbor.gem = gem;
-				}
-				gem = 0;
-				state = CellState.BASE;
-				forwardNeighbor.bump(moveDirectionX, moveDirectionY);
-				return true;
-			}
-
-			break;
 		}
+
 		return false;
+	}
+
+	public boolean tick()
+	{
+		if (findMove(operationId + 1))
+		{
+			return true;
+		}
+
+		return false;
+
 	}
 
 	private void updateForwardNeighbor()
@@ -168,53 +106,20 @@ public class Cell
 		}
 	}
 
-	private void bumpNeighborhood()
+	private static float xx(float x)
 	{
-		for (Cell neighbor : neighborhood)
-		{
-			if (neighbor != null)
-			{
-				neighbor.bump(moveDirectionX, moveDirectionY);
-			}
-		}
+		// return (3 - 2 * x) * x * x;
+		return x * x;
 	}
 
 	private float sdx()
 	{
-		return screenPositionX + (forwardNeighbor.screenPositionX - screenPositionX) * actionCompletion
-				* actionCompletion;
+		return screenPositionX + (forwardNeighbor.screenPositionX - screenPositionX) * xx(actionCompletion);
 	}
 
 	private float sdy()
 	{
-		return screenPositionY + (forwardNeighbor.screenPositionY - screenPositionY) * actionCompletion
-				* actionCompletion;
-	}
-
-	public boolean tick(CellState stateFilter)
-	{
-		if (state != stateFilter)
-		{
-			return false;
-		}
-
-		switch (state)
-		{
-		case BASE:
-			break;
-		case BUMP:
-			return tickSolverBump();
-		case MOVE:
-			return tickSolverMove();
-		case PUT:
-			break;
-		case RECV:
-			break;
-		default:
-			break;
-		}
-
-		return false;
+		return screenPositionY + (forwardNeighbor.screenPositionY - screenPositionY) * xx(actionCompletion);
 	}
 
 	public final static int neighborIndex(int dx, int dy)
@@ -258,22 +163,58 @@ public class Cell
 
 	public enum CellState
 	{
-		BASE, PUT, BUMP, MOVE, RECV
+		BASE, MOVE, RECV
+	}
+
+	private float fScale(float x)
+	{
+		return (-x * x + x)*0.5f + 1;
 	}
 
 	public void draw(BatchDrawer bd, Tile[] gems)
 	{
-		if (state != CellState.MOVE)
+		if (gem > 0)
 		{
-			bd.drawCentered(gems[gem], screenPositionX, screenPositionY);
+			switch (state)
+			{
+			case BASE:
+				bd.drawCentered(gems[gem], screenPositionX, screenPositionY);
+				break;
+			case MOVE:
+				bd.drawScaledCentered(gems[gem], fScale(actionCompletion), sdx(), sdy());
+				break;
+			case RECV:
+				bd.drawScaledCentered(gems[gem], 0.9f, screenPositionX, screenPositionY);
+				break;
+			}
 		}
-		else
-		{
-			bd.drawCentered(gems[gem], sdx(), sdy());
-		}
-
-		// TODO Auto-generated method stub
-
 	}
 
+	public boolean move()
+	{
+		if (state == CellState.MOVE)
+		{
+			actionCompletion += DELTA_MOVE;
+
+			if (actionCompletion >= 1 - DELTA_MOVE)
+			{
+				if (forwardNeighbor.gem == gem)
+				{
+					forwardNeighbor.gem = gem + 1;
+					forwardNeighbor.state = CellState.BASE;
+				}
+				else
+				{
+					forwardNeighbor.gem = gem;
+				}
+				gem = 0;
+				state = CellState.BASE;
+
+				return false;
+			}
+
+			return true;
+		}
+		return false;
+	}
 }
