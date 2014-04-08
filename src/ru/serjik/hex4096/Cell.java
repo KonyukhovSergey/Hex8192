@@ -83,7 +83,7 @@ public class Cell
 	public boolean tryToSetMoveByDirection()
 	{
 		Cell startCell = findStartCell();
-		return startCell.callTryToSetMoveRequrcive(startCell.operationId + 1, 1);
+		return startCell.callTryToSetMoveRequrcive(startCell.operationId + 1);
 	}
 
 	public boolean tryToSetMove()
@@ -119,7 +119,7 @@ public class Cell
 		return false;
 	}
 
-	private boolean callTryToSetMoveRequrcive(int operationId, int waveIndex)
+	private boolean callTryToSetMoveRequrcive(int operationId)
 	{
 		if (this.operationId != operationId)
 		{
@@ -137,7 +137,7 @@ public class Cell
 			{
 				if (neighborhood[indexBackLeft] != null)
 				{
-					if (neighborhood[indexBackLeft].callTryToSetMoveRequrcive(operationId, waveIndex + 1))
+					if (neighborhood[indexBackLeft].callTryToSetMoveRequrcive(operationId))
 					{
 						result = true;
 					}
@@ -145,7 +145,7 @@ public class Cell
 
 				if (neighborhood[indexBackRight] != null)
 				{
-					if (neighborhood[indexBackRight].callTryToSetMoveRequrcive(operationId, waveIndex + 1))
+					if (neighborhood[indexBackRight].callTryToSetMoveRequrcive(operationId))
 					{
 						result = true;
 					}
@@ -153,7 +153,7 @@ public class Cell
 
 				if (neighborhood[indexForward] != null)
 				{
-					if (neighborhood[indexForward].callTryToSetMoveRequrcive(operationId, waveIndex + 1))
+					if (neighborhood[indexForward].callTryToSetMoveRequrcive(operationId))
 					{
 						result = true;
 					}
