@@ -1,5 +1,7 @@
 package ru.serjik.hex4096;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
 import javax.microedition.khronos.opengles.GL10;
@@ -24,6 +26,8 @@ public class HexField extends EngineView
 	private static final int FIELD_SIZE = 6;
 
 	private Cell[] cells;
+	private Cell[] activeCells;
+
 	private int[] freeIndxes;
 
 	private Tile[] gems;
@@ -35,8 +39,9 @@ public class HexField extends EngineView
 	private int fieldCellsWidth;
 	private float cellRadius;
 
-	private int selectedIndex = -1;
-	private Cell initCell = null;
+	private float touchDownX;
+	private float touchDownY;
+	private boolean isMoving = false;
 
 	public HexField(Context context)
 	{
@@ -89,23 +94,6 @@ public class HexField extends EngineView
 		tick();
 	}
 
-	private boolean doTickForCells()
-	{
-		boolean result = false;
-
-		for (Cell cell : cells)
-		{
-			if (cell != null)
-			{
-				if (cell.tick())
-				{
-					result = true;
-				}
-			}
-		}
-		return result;
-	}
-
 	private boolean doMove()
 	{
 		boolean result = false;
@@ -125,26 +113,36 @@ public class HexField extends EngineView
 
 	private void onMoveEnd()
 	{
-
-		for (Cell cell : cells)
+		for (Cell cell : activeCells)
 		{
-			if (cell != null)
-			{
-				cell.state = CellState.BASE;
-			}
+			cell.state = CellState.BASE;
 		}
 
 	}
 
+	private boolean tryToSetMove()
+	{
+		boolean result = false;
+
+		for (Cell cell : activeCells)
+		{
+			if (cell.tryToSetMove())
+			{
+				result = true;
+			}
+		}
+		return result;
+	}
+
 	private void tick()
 	{
-		if (initCell != null)
+		if (isMoving)
 		{
 			boolean hasAction = false;
-			
-			if(initCell.tick())
+
+			if (tryToSetMove())
 			{
-				return;
+				hasAction = true;
 			}
 
 			if (doMove())
@@ -152,9 +150,8 @@ public class HexField extends EngineView
 				hasAction = true;
 			}
 
-			if (initCell.tick())
+			if (tryToSetMove())
 			{
-				
 				hasAction = true;
 			}
 
@@ -165,7 +162,7 @@ public class HexField extends EngineView
 
 			Log.v("move", "onMoveEnd!!!");
 			putGems(GEMS_PER_MOVE);
-			initCell = null;
+			isMoving = false;
 			onMoveEnd();
 		}
 
@@ -174,7 +171,7 @@ public class HexField extends EngineView
 	@Override
 	public boolean onTouchEvent(MotionEvent event)
 	{
-		if (initCell == null)
+		if (isMoving == false)
 		{
 			int action = event.getAction();
 			float x = event.getX();
@@ -183,43 +180,29 @@ public class HexField extends EngineView
 			switch (action)
 			{
 			case MotionEvent.ACTION_DOWN:
-				selectedIndex = getIndex(x, y);
-				if (selectedIndex >= 0)
-				{
-					return true;
-				}
-				break;
+				touchDownX = x;
+				touchDownY = y;
+				return true;
+
 			case MotionEvent.ACTION_MOVE:
-				if (selectedIndex >= 0)
+			{
+				int dx = (int) (x - touchDownX);
+				int dy = (int) (y - touchDownY);
+
+				if (dx * dx + dy * dy > 4 * cellRadius * cellRadius)
 				{
-					int index = getIndex(x, y);
-
-					if (index != selectedIndex && index >= 0)
-					{
-						int dx = (int) (cells[index].screenPositionX - cells[selectedIndex].screenPositionX);
-						int dy = (int) (cells[index].screenPositionY - cells[selectedIndex].screenPositionY);
-
-						if (Math.abs(dy) < Math.abs(dx) * 0.5f)
-						{
-							dy = 0;
-							dx = dx < 0 ? -1 : 1;
-						}
-						else
-						{
-							dx = dy < 0 ? (dx < 0 ? 0 : 1) : (dx < 0 ? -1 : 0);
-							dy = dy < 0 ? -1 : 1;
-						}
-						Log.v("move", "dx = " + dx + " dy = " + dy);
-
-						cells[selectedIndex].bump(dx, dy);
-						initCell = cells[selectedIndex];
-						return true;
-					}
+					isMoving = Cell.bump(dx, dy);
 				}
+			}
 				break;
 			}
 		}
-		return super.onTouchEvent(event);
+		else
+		{
+			touchDownX = event.getX();
+			touchDownY = event.getY();
+		}
+		return true;
 	}
 
 	public boolean putGems(int count)
@@ -243,23 +226,17 @@ public class HexField extends EngineView
 
 	private void drawCells()
 	{
-		for (Cell cell : cells)
+		for (Cell cell : activeCells)
 		{
-			if (cell != null)
-			{
-				bd.drawCentered(gems[0], cell.screenPositionX, cell.screenPositionY);
-			}
+			bd.drawCentered(gems[0], cell.screenPositionX, cell.screenPositionY);
 		}
 	}
 
 	private void drawGems()
 	{
-		for (Cell cell : cells)
+		for (Cell cell : activeCells)
 		{
-			if (cell != null)
-			{
-				cell.draw(bd, gems);
-			}
+			cell.draw(bd, gems);
 		}
 	}
 
@@ -322,6 +299,8 @@ public class HexField extends EngineView
 		float cw = cellRadius * kw;
 		float ch = cellRadius * 0.75f;
 
+		List<Cell> activeCellList = new ArrayList<Cell>();
+
 		for (int i = 0; i < cells.length; i++)
 		{
 			int ix = i % fieldCellsWidth;
@@ -344,17 +323,19 @@ public class HexField extends EngineView
 						&& y < height() - cellRadius)
 				{
 					cells[i] = new Cell(x, y);
+					activeCellList.add(cells[i]);
 				}
 			}
 		}
+
+		activeCells = new Cell[activeCellList.size()];
+		activeCellList.toArray(activeCells);
 	}
 
 	private void setNieghborhood()
 	{
-
 		for (int i = 0; i < cells.length; i++)
 		{
-
 			if (cells[i] != null)
 			{
 				int ri = i % fieldCellsWidth;
@@ -371,5 +352,4 @@ public class HexField extends EngineView
 			}
 		}
 	}
-
 }

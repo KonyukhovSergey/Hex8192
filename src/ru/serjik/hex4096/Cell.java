@@ -1,5 +1,6 @@
 package ru.serjik.hex4096;
 
+import android.util.Log;
 import ru.serjik.engine.BatchDrawer;
 import ru.serjik.engine.Tile;
 
@@ -7,7 +8,7 @@ import ru.serjik.engine.Tile;
 
 public class Cell
 {
-	private static final float DELTA_MOVE = 0.05f;
+	private static final float DELTA_MOVE = 0.07f;
 
 	public int gem = 0;
 
@@ -33,16 +34,29 @@ public class Cell
 		screenPositionY = y;
 	}
 
-	public void bump(int dx, int dy)
+	public static boolean bump(int dx, int dy)
 	{
+		if (Math.abs(dy) < Math.abs(dx) * 0.5f)
+		{
+			dy = 0;
+			dx = dx < 0 ? -1 : 1;
+		}
+		else
+		{
+			dx = dy < 0 ? (dx < 0 ? 0 : 1) : (dx < 0 ? -1 : 0);
+			dy = dy < 0 ? -1 : 1;
+		}
+
+		Log.v("bump", "dx = " + dx + " dy = " + dy);
+
 		moveDirectionX = dx;
 		moveDirectionY = dy;
+
+		return dx != 0 || dy != 0;
 	}
 
-	private boolean findMove(int operationId)
+	public boolean tryToSetMove()
 	{
-		this.operationId = operationId;
-
 		if (gem > 0 && state == CellState.BASE)
 		{
 			updateForwardNeighbor();
@@ -63,35 +77,15 @@ public class Cell
 					forwardNeighbor.state = CellState.RECV;
 					return true;
 				}
-			}
-		}
 
-		for (int i = 0; i < 6; i++)
-		{
-			if (neighborhood[i] != null)
-			{
-				if (neighborhood[i].operationId != operationId)
+				if (forwardNeighbor.state == CellState.MOVE && forwardNeighbor.actionCompletion > 0.1f)
 				{
-					if (neighborhood[i].findMove(operationId))
-					{
-						return true;
-					}
+					state = CellState.MOVE;
+					return true;
 				}
 			}
 		}
-
 		return false;
-	}
-
-	public boolean tick()
-	{
-		if (findMove(operationId + 1))
-		{
-			return true;
-		}
-
-		return false;
-
 	}
 
 	private void updateForwardNeighbor()
