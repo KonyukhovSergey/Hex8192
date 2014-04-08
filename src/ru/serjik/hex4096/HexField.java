@@ -21,7 +21,7 @@ import ru.serjik.utils.BitmapUtils;
 
 public class HexField extends EngineView
 {
-	private static final int GEMS_PER_MOVE = 3;
+	private static final int GEMS_PER_MOVE = 4;
 	private static final Random rnd = new Random(SystemClock.elapsedRealtime());
 	private static final int FIELD_SIZE = 6;
 
@@ -124,16 +124,6 @@ public class HexField extends EngineView
 	private boolean tryToSetMove()
 	{
 		return centerCell.tryToSetMoveByDirection();
-//		boolean result = false;
-//
-//		for (Cell cell : activeCells)
-//		{
-//			if (cell.tryToSetMove())
-//			{
-//				result = true;
-//			}
-//		}
-//		return result;
 	}
 
 	private void tick()
@@ -141,11 +131,6 @@ public class HexField extends EngineView
 		if (isMoving)
 		{
 			boolean hasAction = false;
-
-			if (tryToSetMove())
-			{
-				hasAction = true;
-			}
 
 			if (doMove())
 			{

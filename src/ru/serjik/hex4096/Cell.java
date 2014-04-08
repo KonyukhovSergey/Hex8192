@@ -1,6 +1,5 @@
 package ru.serjik.hex4096;
 
-import android.R.bool;
 import android.util.Log;
 import ru.serjik.engine.BatchDrawer;
 import ru.serjik.engine.Tile;
@@ -31,6 +30,8 @@ public class Cell
 	private static int indexBackward = -1;
 	private static int indexBackLeft = -1;
 	private static int indexBackRight = -1;
+
+	public int waveIndex = 0;
 
 	public Cell(float x, float y)
 	{
@@ -82,7 +83,7 @@ public class Cell
 	public boolean tryToSetMoveByDirection()
 	{
 		Cell startCell = findStartCell();
-		return startCell.callTryToSetMoveRequrcive(startCell.operationId + 1);
+		return startCell.callTryToSetMoveRequrcive(startCell.operationId + 1, 1);
 	}
 
 	public boolean tryToSetMove()
@@ -118,10 +119,11 @@ public class Cell
 		return false;
 	}
 
-	private boolean callTryToSetMoveRequrcive(int operationId)
+	private boolean callTryToSetMoveRequrcive(int operationId, int waveIndex)
 	{
 		if (this.operationId != operationId)
 		{
+			this.waveIndex = waveIndex;
 			this.operationId = operationId;
 
 			boolean result = false;
@@ -135,7 +137,7 @@ public class Cell
 			{
 				if (neighborhood[indexBackLeft] != null)
 				{
-					if (neighborhood[indexBackLeft].callTryToSetMoveRequrcive(operationId))
+					if (neighborhood[indexBackLeft].callTryToSetMoveRequrcive(operationId, waveIndex + 1))
 					{
 						result = true;
 					}
@@ -143,7 +145,7 @@ public class Cell
 
 				if (neighborhood[indexBackRight] != null)
 				{
-					if (neighborhood[indexBackRight].callTryToSetMoveRequrcive(operationId))
+					if (neighborhood[indexBackRight].callTryToSetMoveRequrcive(operationId, waveIndex + 1))
 					{
 						result = true;
 					}
@@ -151,7 +153,7 @@ public class Cell
 
 				if (neighborhood[indexForward] != null)
 				{
-					if (neighborhood[indexForward].callTryToSetMoveRequrcive(operationId))
+					if (neighborhood[indexForward].callTryToSetMoveRequrcive(operationId, waveIndex + 1))
 					{
 						result = true;
 					}
@@ -159,7 +161,6 @@ public class Cell
 			}
 
 			return result;
-
 		}
 		else
 		{
