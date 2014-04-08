@@ -1,5 +1,6 @@
 package ru.serjik.hex4096;
 
+import android.R.bool;
 import android.util.Log;
 import ru.serjik.engine.BatchDrawer;
 import ru.serjik.engine.Tile;
@@ -26,7 +27,10 @@ public class Cell
 
 	public Cell[] neighborhood = new Cell[6];
 
-	private Cell forwardNeighbor = null;
+	private static int indexForward = -1;
+	private static int indexBackward = -1;
+	private static int indexBackLeft = -1;
+	private static int indexBackRight = -1;
 
 	public Cell(float x, float y)
 	{
@@ -52,14 +56,40 @@ public class Cell
 		moveDirectionX = dx;
 		moveDirectionY = dy;
 
+		indexForward = neighborIndex(moveDirectionX, moveDirectionY);
+
+		if (indexForward >= 0)
+		{
+			indexBackward = (indexForward + 6 + 3) % 6;
+			indexBackLeft = (indexForward + 6 - 2) % 6;
+			indexBackRight = (indexForward + 6 + 2) % 6;
+		}
+
 		return dx != 0 || dy != 0;
+	}
+
+	private Cell findStartCell()
+	{
+		Cell startCell = this;
+
+		while (startCell.neighborhood[indexBackward] != null)
+		{
+			startCell = startCell.neighborhood[indexBackward];
+		}
+		return startCell;
+	}
+
+	public boolean tryToSetMoveByDirection()
+	{
+		Cell startCell = findStartCell();
+		return startCell.callTryToSetMoveRequrcive(startCell.operationId + 1);
 	}
 
 	public boolean tryToSetMove()
 	{
 		if (gem > 0 && state == CellState.BASE)
 		{
-			updateForwardNeighbor();
+			Cell forwardNeighbor = neighborhood[indexForward];
 
 			if (forwardNeighbor != null)
 			{
@@ -88,15 +118,52 @@ public class Cell
 		return false;
 	}
 
-	private void updateForwardNeighbor()
+	private boolean callTryToSetMoveRequrcive(int operationId)
 	{
-		int forwardIndex = neighborIndex(moveDirectionX, moveDirectionY);
-
-		forwardNeighbor = null;
-
-		if (forwardIndex >= 0)
+		if (this.operationId != operationId)
 		{
-			forwardNeighbor = neighborhood[forwardIndex];
+			this.operationId = operationId;
+
+			boolean result = false;
+
+			if (tryToSetMove())
+			{
+				result = true;
+			}
+
+			if (indexForward >= 0)
+			{
+				if (neighborhood[indexBackLeft] != null)
+				{
+					if (neighborhood[indexBackLeft].callTryToSetMoveRequrcive(operationId))
+					{
+						result = true;
+					}
+				}
+
+				if (neighborhood[indexBackRight] != null)
+				{
+					if (neighborhood[indexBackRight].callTryToSetMoveRequrcive(operationId))
+					{
+						result = true;
+					}
+				}
+
+				if (neighborhood[indexForward] != null)
+				{
+					if (neighborhood[indexForward].callTryToSetMoveRequrcive(operationId))
+					{
+						result = true;
+					}
+				}
+			}
+
+			return result;
+
+		}
+		else
+		{
+			return false;
 		}
 	}
 
@@ -106,14 +173,14 @@ public class Cell
 		return x * x;
 	}
 
-	private float sdx()
+	private float sdx(float sx)
 	{
-		return screenPositionX + (forwardNeighbor.screenPositionX - screenPositionX) * xx(actionCompletion);
+		return screenPositionX + (sx - screenPositionX) * xx(actionCompletion);
 	}
 
-	private float sdy()
+	private float sdy(float sy)
 	{
-		return screenPositionY + (forwardNeighbor.screenPositionY - screenPositionY) * xx(actionCompletion);
+		return screenPositionY + (sy - screenPositionY) * xx(actionCompletion);
 	}
 
 	public final static int neighborIndex(int dx, int dy)
@@ -175,7 +242,11 @@ public class Cell
 				bd.drawCentered(gems[gem], screenPositionX, screenPositionY);
 				break;
 			case MOVE:
-				bd.drawScaledCentered(gems[gem], fScale(actionCompletion), sdx(), sdy());
+			{
+				Cell forwardNeighbor = neighborhood[indexForward];
+				bd.drawScaledCentered(gems[gem], fScale(actionCompletion), sdx(forwardNeighbor.screenPositionX),
+						sdy(forwardNeighbor.screenPositionY));
+			}
 				break;
 			case RECV:
 				bd.drawScaledCentered(gems[gem], 0.9f, screenPositionX, screenPositionY);
@@ -192,6 +263,8 @@ public class Cell
 
 			if (actionCompletion >= 1 - DELTA_MOVE)
 			{
+				Cell forwardNeighbor = neighborhood[indexForward];
+
 				if (forwardNeighbor.gem == gem)
 				{
 					forwardNeighbor.gem = gem + 1;

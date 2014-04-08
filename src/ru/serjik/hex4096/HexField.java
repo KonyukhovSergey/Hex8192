@@ -27,6 +27,7 @@ public class HexField extends EngineView
 
 	private Cell[] cells;
 	private Cell[] activeCells;
+	private Cell centerCell;
 
 	private int[] freeIndxes;
 
@@ -122,16 +123,17 @@ public class HexField extends EngineView
 
 	private boolean tryToSetMove()
 	{
-		boolean result = false;
-
-		for (Cell cell : activeCells)
-		{
-			if (cell.tryToSetMove())
-			{
-				result = true;
-			}
-		}
-		return result;
+		return centerCell.tryToSetMoveByDirection();
+//		boolean result = false;
+//
+//		for (Cell cell : activeCells)
+//		{
+//			if (cell.tryToSetMove())
+//			{
+//				result = true;
+//			}
+//		}
+//		return result;
 	}
 
 	private void tick()
@@ -306,15 +308,12 @@ public class HexField extends EngineView
 			int ix = i % fieldCellsWidth;
 			int iy = i / fieldCellsWidth;
 
-			if (HexUtils.distance(ix, iy, cr, cq) <= dist)
+			int hexDistance = HexUtils.distance(ix, iy, cr, cq);
+
+			if (hexDistance <= dist)
 			{
 				int r = ix - (FIELD_SIZE - 1);
 				int q = iy - (FIELD_SIZE - 1);
-
-				// ! shit fucking trouble!!!
-				// float x = cellRadius * (float) Math.sqrt(3.0f) * (q + (float)
-				// r * 0.5f) + centerFieldX;
-				// float y = cellRadius * 1.5f * r + centerFieldY;
 
 				float x = r * cw * 2 + q * cw + centerFieldX;
 				float y = q * ch * 2 + centerFieldY;
@@ -324,6 +323,10 @@ public class HexField extends EngineView
 				{
 					cells[i] = new Cell(x, y);
 					activeCellList.add(cells[i]);
+					if (hexDistance == 0)
+					{
+						centerCell = cells[i];
+					}
 				}
 			}
 		}
