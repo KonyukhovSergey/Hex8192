@@ -57,7 +57,7 @@ public class Cell
 					return true;
 				}
 
-				if (forwardNeighbor.gem == gem)
+				if (forwardNeighbor.gem == gem && forwardNeighbor.state == CellState.BASE)
 				{
 					state = CellState.MOVE;
 					forwardNeighbor.state = CellState.RECV;
@@ -168,7 +168,7 @@ public class Cell
 
 	private float fScale(float x)
 	{
-		return (-x * x + x)*0.5f + 1;
+		return (-x * x + x) * 0.5f + 1;
 	}
 
 	public void draw(BatchDrawer bd, Tile[] gems)

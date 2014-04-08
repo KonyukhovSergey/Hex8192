@@ -141,6 +141,11 @@ public class HexField extends EngineView
 		if (initCell != null)
 		{
 			boolean hasAction = false;
+			
+			if(initCell.tick())
+			{
+				return;
+			}
 
 			if (doMove())
 			{
@@ -149,6 +154,7 @@ public class HexField extends EngineView
 
 			if (initCell.tick())
 			{
+				
 				hasAction = true;
 			}
 
