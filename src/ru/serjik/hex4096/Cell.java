@@ -8,7 +8,7 @@ import ru.serjik.engine.Tile;
 
 public class Cell
 {
-	private static final float DELTA_MOVE = 0.07f;
+	private static final float ACCELERATION = 0.01f;
 
 	public int gem = 0;
 
@@ -17,7 +17,8 @@ public class Cell
 	private static int moveDirectionX;
 	private static int moveDirectionY;
 
-	private float actionCompletion;
+	private float actionCompletion = 0;
+	private float velocity = 0;
 
 	private int operationId = 0;
 
@@ -30,8 +31,6 @@ public class Cell
 	private static int indexBackward = -1;
 	private static int indexBackLeft = -1;
 	private static int indexBackRight = -1;
-
-	public int waveIndex = 0;
 
 	public Cell(float x, float y)
 	{
@@ -94,8 +93,6 @@ public class Cell
 
 			if (forwardNeighbor != null)
 			{
-				actionCompletion = 0;
-
 				if (forwardNeighbor.gem == 0)
 				{
 					state = CellState.MOVE;
@@ -106,15 +103,26 @@ public class Cell
 				{
 					state = CellState.MOVE;
 					forwardNeighbor.state = CellState.RECV;
+					forwardNeighbor.velocity = 0;
+					forwardNeighbor.actionCompletion = 0;
+					velocity = 0;
+					actionCompletion = 0;
 					return true;
 				}
 
-				if (forwardNeighbor.state == CellState.MOVE && forwardNeighbor.actionCompletion > 0.1f)
+				if (forwardNeighbor.state == CellState.MOVE && forwardNeighbor.actionCompletion > 0.05f)
 				{
+					if (velocity >= forwardNeighbor.velocity)
+					{
+						velocity = 0;
+					}
 					state = CellState.MOVE;
 					return true;
 				}
 			}
+
+			actionCompletion = 0;
+			velocity = 0;
 		}
 		return false;
 	}
@@ -123,7 +131,6 @@ public class Cell
 	{
 		if (this.operationId != operationId)
 		{
-			this.waveIndex = waveIndex;
 			this.operationId = operationId;
 
 			boolean result = false;
@@ -168,20 +175,14 @@ public class Cell
 		}
 	}
 
-	private static float xx(float x)
+	private float screenPositionX()
 	{
-		// return (3 - 2 * x) * x * x;
-		return x * x;
+		return screenPositionX + (neighborhood[indexForward].screenPositionX - screenPositionX) * actionCompletion;
 	}
 
-	private float sdx(float sx)
+	private float screenPositionY()
 	{
-		return screenPositionX + (sx - screenPositionX) * xx(actionCompletion);
-	}
-
-	private float sdy(float sy)
-	{
-		return screenPositionY + (sy - screenPositionY) * xx(actionCompletion);
+		return screenPositionY + (neighborhood[indexForward].screenPositionY - screenPositionY) * actionCompletion;
 	}
 
 	public final static int neighborIndex(int dx, int dy)
@@ -243,11 +244,7 @@ public class Cell
 				bd.drawCentered(gems[gem], screenPositionX, screenPositionY);
 				break;
 			case MOVE:
-			{
-				Cell forwardNeighbor = neighborhood[indexForward];
-				bd.drawScaledCentered(gems[gem], fScale(actionCompletion), sdx(forwardNeighbor.screenPositionX),
-						sdy(forwardNeighbor.screenPositionY));
-			}
+				bd.drawCentered(gems[gem], screenPositionX(), screenPositionY());
 				break;
 			case RECV:
 				bd.drawScaledCentered(gems[gem], 0.9f, screenPositionX, screenPositionY);
@@ -260,9 +257,10 @@ public class Cell
 	{
 		if (state == CellState.MOVE)
 		{
-			actionCompletion += DELTA_MOVE;
+			actionCompletion += velocity;
+			velocity += ACCELERATION;
 
-			if (actionCompletion >= 1 - DELTA_MOVE)
+			if (actionCompletion >= 1 - velocity)
 			{
 				Cell forwardNeighbor = neighborhood[indexForward];
 
@@ -270,13 +268,19 @@ public class Cell
 				{
 					forwardNeighbor.gem = gem + 1;
 					forwardNeighbor.state = CellState.BASE;
+					forwardNeighbor.velocity = 0;
+					forwardNeighbor.actionCompletion = 0;
 				}
 				else
 				{
 					forwardNeighbor.gem = gem;
+					forwardNeighbor.velocity = velocity;
+					forwardNeighbor.actionCompletion = actionCompletion - 1;
 				}
 				gem = 0;
 				state = CellState.BASE;
+				velocity = 0;
+				actionCompletion = 0;
 
 				return false;
 			}
