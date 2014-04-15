@@ -1,6 +1,9 @@
 package ru.serjik.hex4096;
 
+import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
@@ -13,6 +16,7 @@ import android.view.MotionEvent;
 import android.widget.Toast;
 import ru.serjik.engine.BatchDrawer;
 import ru.serjik.engine.EngineView;
+import ru.serjik.engine.Sprite;
 import ru.serjik.engine.Texture;
 import ru.serjik.engine.Tile;
 import ru.serjik.engine.eng;
@@ -31,7 +35,7 @@ public class HexField extends EngineView
 
 	private int[] freeIndxes;
 
-	private Tile[] gems;
+	private Sprite[] gems;
 	private BatchDrawer bd;
 
 	private float centerFieldX;
@@ -54,7 +58,7 @@ public class HexField extends EngineView
 	public void onCreated(GL10 gl)
 	{
 		Texture atlas = new Texture(BitmapUtils.generate(512, 128, BitmapUtils.loadBitmapsFromAsset(eng.am), true));
-		gems = Tile.split(atlas, atlas.width / 4, atlas.height / 4);
+		gems = Sprite.wrap(Tile.split(atlas, atlas.width / 4, atlas.height / 4));
 	}
 
 	@Override

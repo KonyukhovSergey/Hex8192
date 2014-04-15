@@ -229,11 +229,6 @@ public class Cell
 		BASE, MOVE, RECV
 	}
 
-	private float fScale(float x)
-	{
-		return (-x * x + x) * 0.5f + 1;
-	}
-
 	public void draw(BatchDrawer bd, Tile[] gems)
 	{
 		if (gem > 0)
